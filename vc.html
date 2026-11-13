@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VCトレーニング</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    /* スマホ前提：周囲のグレー背景は置かず、白で画面いっぱいに表示する */
+    background: #ffffff;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden; /* スクロール無しで表示する */
+  }
+
+  /* ===== 本体（スマホ前提：カード化せず画面幅いっぱい） ===== */
+  .app {
+    --wc: min(calc((100vw - 60px) / 4), 96px); /* 列の幅＝基本キーの一辺（正方形にする） */
+    width: 100%;
+    text-align: center;
+    background: #ffffff;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* ===== 見出し ===== */
+  .title {
+    font-family: "Arial Black", Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    font-size: 25px;
+    font-weight: 900;
+    font-style: italic;
+    color: #1d2733;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+  }
+  .title .vc {
+    color: #2f7fe0;
+    font-size: 29px;
+    letter-spacing: 0.02em;
+    margin-right: 2px;
+  }
+  .title-bar {
+    width: 56px;
+    height: 4px;
+    border-radius: 2px;
+    margin: 6px auto 0;
+    background: linear-gradient(90deg, #2ea36b, #2f7fe0);
+  }
+
+  /* ===== 上部コントロール（スタート/ストップ） ===== */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .ctl {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    color: #2a2f36;
+    background: linear-gradient(180deg, #ffffff 0%, #e3e6eb 100%);
+    border: 1px solid #c2c7cf;
+    box-shadow:
+      0 4px 0 #aeb4be,
+      0 6px 10px rgba(31, 38, 48, 0.16),
+      inset 0 1px 0 #ffffff;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.12s ease;
+  }
+  .ctl:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 #aeb4be,
+      0 3px 5px rgba(31, 38, 48, 0.16),
+      inset 0 1px 0 #ffffff;
+  }
+  .ctl:focus-visible { outline: 3px solid #6fc3ff; outline-offset: 2px; }
+  #startStopBtn { flex: 1; }
+  /* スタート（緑） */
+  .ctl.start {
+    color: #ffffff;
+    background: linear-gradient(180deg, #63cf96 0%, #2ea36b 100%);
+    border-color: #26855a;
+    text-shadow: 0 1px 2px rgba(16, 80, 48, 0.40);
+    box-shadow:
+      0 4px 0 #20724c,
+      0 6px 10px rgba(32, 114, 76, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  .ctl.start:active {
+    box-shadow:
+      0 1px 0 #20724c,
+      0 3px 5px rgba(32, 114, 76, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  /* ストップ（赤：実行中の表示） */
+  .ctl.stop {
+    color: #ffffff;
+    background: linear-gradient(180deg, #f28b82 0%, #df5252 100%);
+    border-color: #c04541;
+    text-shadow: 0 1px 2px rgba(110, 25, 25, 0.40);
+    box-shadow:
+      0 4px 0 #b03a37,
+      0 6px 10px rgba(176, 58, 55, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  .ctl.stop:active {
+    box-shadow:
+      0 1px 0 #b03a37,
+      0 3px 5px rgba(176, 58, 55, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+
+  /* ===== 表示パネル（精密機器の窓のような窪み） ===== */
+  .display {
+    flex: 1 0 auto; /* 余った高さはこのパネルが吸収して伸びる（真っ白な空白を作らない） */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 14px;
+    background: linear-gradient(180deg, #1d232b 0%, #2a313b 100%);
+    border-radius: 18px;
+    border: 1px solid #12161c;
+    box-shadow:
+      inset 0 3px 12px rgba(0, 0, 0, 0.65),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+      0 1px 0 #ffffff;
+    padding: 12px 12px 10px;
+  }
+  .panel-label {
+    font-size: 10px;
+    color: #8d97a5;
+    letter-spacing: 0.3em;
+  }
+  #numberLabel {
+    font-size: 72px;
+    font-weight: bold;
+    color: #f5f7fa;
+    line-height: 1.12;
+    letter-spacing: 0.12em;
+    text-indent: 0.12em; /* letter-spacing分の右寄りを中央に戻す */
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  }
+  .divider {
+    height: 1px;
+    margin: 6px 26px 8px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  }
+  #inputLabel {
+    font-size: 36px;
+    font-weight: bold;
+    color: #6fc3ff;
+    line-height: 1.2;
+    min-height: 44px;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 14px rgba(111, 195, 255, 0.45);
+  }
+
+  /* ===== テンキー（立体キー、4列レイアウト） ===== */
+  /* Enキーを右側（4列目）に絶対配置するための受け台。
+     padding-top 22px がキー配置エリアの上端です */
+  .keypad-wrap {
+    position: relative;
+    padding-top: 20px;
+  }
+  /* 数字・BSキーは左3列に配置し、右1列ぶんをEn用に空ける
+     幅：全体75% - 2px（列間ギャップ8px×3を4列で等分した計算） */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 8px;
+    width: calc(75% - 2px);
+  }
+  /* 最下段：0とBSで半分ずつ分け合う専用の行（どちらも元の約1.5倍幅）。
+     BSは3列目側に置くため、3列目と同じ「下げ」列として扱う */
+  .bottom-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px; /* 行間（縦の間隔）と同じ */
+    width: calc(75% - 2px);
+  }
+  .bottom-row .key { flex: 1 1 0; }
+  .key {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2a2f36;
+    height: 76px; /* 変数が使えない環境向けの固定値 */
+    height: var(--wc); /* 幅と高さを同じにして正方形にする */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    /* キー上面のグラデーション＋上面のハイライト */
+    background: linear-gradient(180deg, #ffffff 0%, #e3e6eb 100%);
+    border: 1px solid #c2c7cf;
+    /* 下側の厚み（キーの側面）と落下影で立体感を作る */
+    box-shadow:
+      0 6px 0 #aeb4be,
+      0 10px 16px rgba(31, 38, 48, 0.20),
+      inset 0 1px 0 #ffffff,
+      inset 0 -2px 3px rgba(31, 38, 48, 0.06);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.12s ease;
+  }
+  @media (hover: hover) {
+    .key:hover { filter: brightness(1.04); }
+  }
+  /* 押し込んだ状態：キー全体が下がり、厚みと影が潰れる */
+  .key:active {
+    transform: translateY(5px);
+    box-shadow:
+      0 1px 0 #aeb4be,
+      0 3px 6px rgba(31, 38, 48, 0.18),
+      inset 0 1px 0 #ffffff,
+      inset 0 2px 5px rgba(31, 38, 48, 0.10);
+  }
+  .key:focus-visible { outline: 3px solid #6fc3ff; outline-offset: 2px; }
+
+  /* 列ずらし：1・3列目のキーは、キー高さ（＝列の幅）の20% 下げる（2列目が基準）。
+     押し込み時は ずらし分＋5px で、沈み込みの動きがずらしに埋もれないようにする */
+  .key.down { transform: translateY(15.2px); transform: translateY(calc(var(--wc) * 0.2)); }
+  .key.down:active { transform: translateY(20.2px); transform: translateY(calc(var(--wc) * 0.2 + 5px)); }
+
+  /* BS：柔らかい赤のキー */
+  .key.bs {
+    color: #7c2d26;
+    background: linear-gradient(180deg, #ffe7e4 0%, #f2aca4 100%);
+    border-color: #d89088;
+    box-shadow:
+      0 6px 0 #c07a72,
+      0 10px 16px rgba(124, 45, 38, 0.20),
+      inset 0 1px 0 #fff5f3,
+      inset 0 -2px 3px rgba(124, 45, 38, 0.08);
+  }
+  .key.bs:active {
+    box-shadow:
+      0 1px 0 #c07a72,
+      0 3px 6px rgba(124, 45, 38, 0.18),
+      inset 0 1px 0 #fff5f3,
+      inset 0 2px 5px rgba(124, 45, 38, 0.12);
+  }
+  /* En：主役の青いキー（文字は白）。右側4列目の縦長キーとして絶対配置。
+     位置の計算（キー高さ＝列の幅 wc、行間10px、受け台のpadding-top 20px）：
+       高さは従来の2倍にして上へ伸ばした（下端は「0」キーの下端で固定）：
+       上端 = wc×1.2 + 30px → 下げた列の2行目（4・6キー）の上端に揃う
+       高さ = wc×3 + 20px（従来 wc×1.5 + 10px の2倍）
+       幅   = (100% - 8px×3) ÷ 4 = 25% - 6px（他キーと同じ列幅） */
+  .key.en {
+    position: absolute;
+    right: 0;
+    top: 128px; /* 固定値フォールバック */
+    top: calc(var(--wc) * 1.2 + 30px);
+    width: calc(25% - 6px);
+    height: 266px; /* 固定値フォールバック */
+    height: calc(var(--wc) * 3 + 20px);
+    color: #ffffff;
+    background: linear-gradient(180deg, #63aef8 0%, #2f7fe0 100%);
+    border-color: #2f6fc0;
+    text-shadow: 0 1px 2px rgba(18, 58, 110, 0.45);
+    box-shadow:
+      0 6px 0 #1f5fb4,
+      0 10px 16px rgba(31, 95, 180, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -2px 3px rgba(18, 58, 110, 0.18);
+  }
+  .key.en:active {
+    box-shadow:
+      0 1px 0 #1f5fb4,
+      0 3px 6px rgba(31, 95, 180, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 2px 5px rgba(18, 58, 110, 0.22);
+  }
+  /* ===== ペース・案内 ===== */
+  #pace {
+    align-self: center;
+    display: inline-block;
+    margin-top: 12px;
+    padding: 8px 26px;
+    font-size: 21px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: #232830;
+    background: linear-gradient(180deg, #ffffff, #e8ebef);
+    border: 1px solid #ccd1d9;
+    border-radius: 999px;
+    box-shadow: 0 2px 5px rgba(31, 38, 48, 0.10), inset 0 1px 0 #ffffff;
+  }
+  .hint {
+    margin-top: 30px; /* 下がったキーのはみ出し13.6px＋影より大きく取り、重なりを防ぐ */
+    font-size: 12px;
+    color: #9aa1ab;
+  }
+  /* ===== 画面の高さに合わせた段階縮小（スクロール無しで収める） =====
+     キー高さ・行間・ずらし量・Enの位置は各段階でセットで変え、
+     Enの上端＝「3」の中央、下端＝「0」の下端、の関係は全段階で保ちます */
+  @media (max-height: 820px) {
+    .app { padding: 12px 16px 10px; --wc: min(calc((100vw - 56px) / 4), 96px); }
+    .title { font-size: 21px; }
+    .title .vc { font-size: 25px; }
+    .title-bar { margin-top: 5px; }
+    .controls { margin-top: 10px; }
+    .ctl { height: 40px; }
+    #pace { margin-top: 8px; padding: 6px 20px; font-size: 18px; }
+    .display { margin-top: 6px; padding: 10px 12px 8px; }
+    #numberLabel { font-size: 52px; }
+    #inputLabel { font-size: 30px; min-height: 38px; }
+    .keypad-wrap { padding-top: 10px; }
+    .keypad { gap: 8px 8px; }
+    .bottom-row { margin-top: 8px; }
+    .key { font-size: 22px; }
+    /* En: 上端 = wc×1.2 + 18px（2行目の上端） / 高さ = wc×3 + 16px（従来の2倍） */
+    .key.en { top: calc(var(--wc) * 1.2 + 18px); height: calc(var(--wc) * 3 + 16px); }
+    .hint { margin-top: 20px; }
+  }
+  @media (max-height: 680px) {
+    .app { padding: 8px 14px 8px; --wc: min(calc((100vw - 52px) / 4), 96px); }
+    .title { font-size: 19px; }
+    .title .vc { font-size: 23px; }
+    .title-bar { margin-top: 4px; }
+    .controls { margin-top: 8px; }
+    .ctl { height: 36px; font-size: 14px; }
+    #pace { margin-top: 8px; padding: 4px 16px; font-size: 16px; }
+    .display { margin-top: 8px; padding: 7px 10px 6px; }
+    #numberLabel { font-size: 42px; }
+    #inputLabel { font-size: 25px; min-height: 30px; }
+    .keypad-wrap { padding-top: 8px; }
+    .keypad { gap: 7px 8px; }
+    .bottom-row { margin-top: 7px; }
+    .key { font-size: 21px; }
+    .divider { margin: 4px 26px 5px; }
+    /* En: 上端 = wc×1.2 + 15px（2行目の上端） / 高さ = wc×3 + 14px（従来の2倍） */
+    .key.en { top: calc(var(--wc) * 1.2 + 15px); height: calc(var(--wc) * 3 + 14px); }
+    .hint { margin-top: 18px; font-size: 11px; }
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title"><span class="vc">VC</span>トレーニング</div>
+  <div class="title-bar"></div>
+
+  <!-- 上部コントロール -->
+  <div class="controls">
+    <button type="button" id="startStopBtn" class="ctl start">スタート</button>
+  </div>
+
+  <div id="pace">平均 0.0 件/分</div>
+
+  <!-- 表示エリア -->
+  <div class="display">
+    <div class="panel-label">TARGET</div>
+    <div id="numberLabel">--</div>
+    <div class="divider"></div>
+    <div class="panel-label">YOUR INPUT</div>
+    <div id="inputLabel">--</div>
+  </div>
+
+  <!-- テンキーエリア：左3列に数字、最下段に0・BS（幅広）、右4列目にEn -->
+  <div class="keypad-wrap">
+  <div class="keypad">
+    <button type="button" class="key down" data-key="7">7</button>
+    <button type="button" class="key" data-key="8">8</button>
+    <button type="button" class="key down" data-key="9">9</button>
+    <button type="button" class="key down" data-key="4">4</button>
+    <button type="button" class="key" data-key="5">5</button>
+    <button type="button" class="key down" data-key="6">6</button>
+    <button type="button" class="key down" data-key="1">1</button>
+    <button type="button" class="key" data-key="2">2</button>
+    <button type="button" class="key down" data-key="3">3</button>
+  </div>
+  <div class="bottom-row">
+    <button type="button" class="key down" data-key="0">0</button>
+    <button type="button" class="key bs down" data-key="BS" aria-label="1文字消す">BS</button>
+  </div>
+  <button type="button" class="key en" data-key="En" aria-label="判定する">En</button>
+  </div>
+
+  <div class="hint">キーボードの 0〜9・Backspace・Enter でも操作できます</div>
+</div>
+
+<script>
+"use strict";
+// 元の Python（tkinter）版 NumberTrainingApp の移植です。
+// 対応：create_widgets → 上のHTML、show_next_number → showNextNumber、
+//       on_button_click → onButtonClick（判定ロジックは元のまま）
+// 追加機能：スタート/ストップで計測する平均ペース（件/分）表示。
+//           正解/判定の件数表示は廃止し、ペースだけを表示します。
+
+var currentNumber = "";   // 現在の正解となる数字（00〜99）
+var doneCount = 0;        // 完了した件数（ペース計算用。画面には件数を出さない）
+var running = false;      // 計測中かどうか
+var startTime = 0;        // スタートした時刻（Date.now()）
+var frozenElapsed = 0;    // ストップ時点の経過時間（ミリ秒）。ペース表示を固定する
+var timerId = null;       // ペース表示を更新するタイマー
+
+var numberLabel   = document.getElementById("numberLabel");
+var inputLabel    = document.getElementById("inputLabel");
+var paceLabel     = document.getElementById("pace");
+var startStopBtn  = document.getElementById("startStopBtn");
+
+// 平均ペース（1分間に何件完了したか）を表示する
+function updatePace() {
+  var elapsed = running ? (Date.now() - startTime) : frozenElapsed;
+  var pace = 0;
+  if (elapsed > 0 && doneCount > 0) {
+    pace = doneCount / (elapsed / 60000);
+  }
+  paceLabel.textContent = "平均 " + pace.toFixed(1) + " 件/分";
+}
+
+// 元: show_next_number()
+function showNextNumber() {
+  // 0〜99からランダムに数字を選び、2桁のゼロ埋め文字列にする
+  var n = Math.floor(Math.random() * 100);
+  currentNumber = (n < 10 ? "0" : "") + n;
+  numberLabel.textContent = currentNumber;
+  inputLabel.textContent = "--";
+}
+
+// 元: on_button_click(char)。ただし計測中（スタート後）だけ受け付ける
+function onButtonClick(char) {
+  if (!running) {
+    return;
+  }
+  var currentInput = inputLabel.textContent;
+
+  if (char === "En") {
+    // "--" の状態でEnterキーが押された場合は何もしない
+    if (currentInput === "--") {
+      return;
+    }
+    // 入力された数字と問題の数字が一致するかチェック
+    if (currentInput === currentNumber) {
+      doneCount++;       // 1件完了として数える（ペース計算用）
+      updatePace();
+      showNextNumber();  // 正解なら次の数字を表示
+    } else {
+      inputLabel.textContent = "--";  // 間違いならリセットしてやり直し
+    }
+
+  } else if (char === "BS") {
+    // 一文字消去。入力が1文字なら "--" に戻す
+    if (currentInput.length <= 1 || currentInput === "--") {
+      inputLabel.textContent = "--";
+    } else {
+      inputLabel.textContent = currentInput.slice(0, -1);
+    }
+
+  } else {
+    // 数字キーが押された場合の処理
+    if (currentInput === "--") {
+      inputLabel.textContent = char;
+    } else {
+      // 2桁の入力に制限する
+      if (currentInput.length < 2) {
+        inputLabel.textContent = currentInput + char;
+      }
+    }
+  }
+}
+
+// スタート：件数とタイマーをリセットして計測開始
+function startTraining() {
+  running = true;
+  doneCount = 0;
+  frozenElapsed = 0;
+  startTime = Date.now();
+  showNextNumber();
+  updatePace();
+  if (timerId !== null) {
+    clearInterval(timerId);
+  }
+  timerId = setInterval(updatePace, 500); // 0.5秒ごとにペースを更新
+  startStopBtn.textContent = "ストップ";
+  startStopBtn.className = "ctl stop";
+}
+
+// ストップ：その時点のペースで表示を固定し、キー入力を止める
+function stopTraining() {
+  if (!running) {
+    return;
+  }
+  frozenElapsed = Date.now() - startTime;
+  running = false;
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  updatePace();
+  startStopBtn.textContent = "スタート";
+  startStopBtn.className = "ctl start";
+}
+
+startStopBtn.addEventListener("click", function () {
+  if (running) {
+    stopTraining();
+  } else {
+    startTraining();
+  }
+  startStopBtn.blur();
+});
+
+
+// テンキーのクリックを onButtonClick につなぐ（元: tk.Button の command）
+var keys = document.querySelectorAll(".key");
+for (var i = 0; i < keys.length; i++) {
+  (function (btn) {
+    btn.addEventListener("click", function () {
+      onButtonClick(btn.getAttribute("data-key"));
+      btn.blur(); // 押したボタンにフォーカスを残すと、Enterで二重入力になるため外す
+    });
+  })(keys[i]);
+}
+
+// 追加分：物理キーボード対応（数字・Backspace・Enterを同じ処理に流す）
+document.addEventListener("keydown", function (e) {
+  if (e.key >= "0" && e.key <= "9") {
+    onButtonClick(e.key);
+  } else if (e.key === "Backspace") {
+    e.preventDefault();
+    onButtonClick("BS");
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    onButtonClick("En");
+  }
+});
+
+// 起動時：問題は出さず、スタート待ちの状態にする
+updatePace();
+</script>
+</body>
+</html>
