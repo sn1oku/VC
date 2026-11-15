@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二特VCトレーニング</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    /* スマホ前提：周囲のグレー背景は置かず、白で画面いっぱいに表示する */
+    background: #ffffff;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden; /* スクロール無しで表示する */
+  }
+
+  /* ===== 本体（スマホ前提：カード化せず画面幅いっぱい） ===== */
+  .app {
+    --wc: min(calc((100vw - 60px) / 4), 96px); /* 列の幅＝基本キーの一辺（正方形にする） */
+    width: 100%;
+    text-align: center;
+    background: #ffffff;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* ===== 見出し ===== */
+  .title {
+    font-family: "Arial Black", Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    font-size: 25px;
+    font-weight: 900;
+    font-style: italic;
+    color: #1d2733;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+  }
+  .title .vc {
+    color: #2f7fe0;
+    font-size: 29px;
+    letter-spacing: 0.02em;
+    margin-right: 2px;
+  }
+  .title-bar {
+    width: 56px;
+    height: 4px;
+    border-radius: 2px;
+    margin: 6px auto 0;
+    background: linear-gradient(90deg, #2ea36b, #2f7fe0);
+  }
+
+  /* ===== 出題範囲ボタン（先頭2桁で絞る） ===== */
+  .range-bar {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .range-btn {
+    flex: 1 1 0;
+    height: 36px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    color: #33506e;
+    background: linear-gradient(180deg, #ffffff 0%, #e8eef6 100%);
+    border: 1px solid #c3d0df;
+    border-radius: 9px;
+    box-shadow: 0 2px 0 #b9c8da, 0 3px 6px rgba(51, 80, 110, 0.12);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .range-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #b9c8da; }
+  .range-btn.selected {
+    color: #ffffff;
+    background: linear-gradient(180deg, #63aef8 0%, #2f7fe0 100%);
+    border-color: #2f6fc0;
+    box-shadow: 0 2px 0 #1f5fb4, 0 3px 6px rgba(31, 95, 180, 0.25);
+    text-shadow: 0 1px 2px rgba(18, 58, 110, 0.45);
+  }
+
+  /* ===== 上部コントロール（スタート/ストップ） ===== */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .ctl {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    color: #2a2f36;
+    background: linear-gradient(180deg, #ffffff 0%, #e3e6eb 100%);
+    border: 1px solid #c2c7cf;
+    box-shadow:
+      0 4px 0 #aeb4be,
+      0 6px 10px rgba(31, 38, 48, 0.16),
+      inset 0 1px 0 #ffffff;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.12s ease;
+  }
+  .ctl:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 #aeb4be,
+      0 3px 5px rgba(31, 38, 48, 0.16),
+      inset 0 1px 0 #ffffff;
+  }
+  .ctl:focus-visible { outline: 3px solid #6fc3ff; outline-offset: 2px; }
+  #startStopBtn { flex: 1; }
+  /* スタート（緑） */
+  .ctl.start {
+    color: #ffffff;
+    background: linear-gradient(180deg, #63cf96 0%, #2ea36b 100%);
+    border-color: #26855a;
+    text-shadow: 0 1px 2px rgba(16, 80, 48, 0.40);
+    box-shadow:
+      0 4px 0 #20724c,
+      0 6px 10px rgba(32, 114, 76, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  .ctl.start:active {
+    box-shadow:
+      0 1px 0 #20724c,
+      0 3px 5px rgba(32, 114, 76, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  /* ストップ（赤：実行中の表示） */
+  .ctl.stop {
+    color: #ffffff;
+    background: linear-gradient(180deg, #f28b82 0%, #df5252 100%);
+    border-color: #c04541;
+    text-shadow: 0 1px 2px rgba(110, 25, 25, 0.40);
+    box-shadow:
+      0 4px 0 #b03a37,
+      0 6px 10px rgba(176, 58, 55, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+  .ctl.stop:active {
+    box-shadow:
+      0 1px 0 #b03a37,
+      0 3px 5px rgba(176, 58, 55, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+
+  /* ===== 表示パネル（精密機器の窓のような窪み） ===== */
+  .display {
+    flex: 1 0 auto; /* 余った高さはこのパネルが吸収して伸びる（真っ白な空白を作らない） */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 10px;
+    background: linear-gradient(180deg, #1d232b 0%, #2a313b 100%);
+    border-radius: 18px;
+    border: 1px solid #12161c;
+    box-shadow:
+      inset 0 3px 12px rgba(0, 0, 0, 0.65),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+      0 1px 0 #ffffff;
+    padding: 12px 12px 10px;
+  }
+  .panel-label {
+    font-size: 10px;
+    color: #8d97a5;
+    letter-spacing: 0.3em;
+  }
+  #numberLabel {
+    font-size: 24px;
+    font-weight: bold;
+    color: #f5f7fa;
+    line-height: 1.12;
+    letter-spacing: 0.03em;
+    text-indent: 0.03em; /* letter-spacing分の右寄りを中央に戻す */
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  }
+  .divider {
+    height: 1px;
+    margin: 6px 26px 8px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  }
+  #inputLabel {
+    font-size: 36px;
+    font-weight: bold;
+    color: #6fc3ff;
+    line-height: 1.2;
+    min-height: 44px;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 14px rgba(111, 195, 255, 0.45);
+  }
+  /* 間違えたときに答えを表示する欄（赤文字）。高さを確保しておき、表示でレイアウトがずれないようにする */
+  #answerLabel {
+    margin-top: 6px;
+    min-height: 21px;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1.4;
+    color: #ff5252;
+  }
+
+  /* ===== テンキー（立体キー、4列レイアウト） ===== */
+  /* Enキーを右側（4列目）に絶対配置するための受け台。
+     padding-top 22px がキー配置エリアの上端です */
+  .keypad-wrap {
+    position: relative;
+    padding-top: 16px;
+  }
+  /* 数字・BSキーは左3列に配置し、右1列ぶんをEn用に空ける
+     幅：全体75% - 2px（列間ギャップ8px×3を4列で等分した計算） */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 8px;
+    width: calc(75% - 2px);
+  }
+  /* 最下段：0とBSで半分ずつ分け合う専用の行（どちらも元の約1.5倍幅）。
+     BSは3列目側に置くため、3列目と同じ「下げ」列として扱う */
+  .bottom-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px; /* 行間（縦の間隔）と同じ */
+    width: calc(75% - 2px);
+  }
+  .bottom-row .key { flex: 1 1 0; }
+  .key {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2a2f36;
+    height: 76px; /* 変数が使えない環境向けの固定値 */
+    height: var(--wc); /* 幅と高さを同じにして正方形にする */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    /* キー上面のグラデーション＋上面のハイライト */
+    background: linear-gradient(180deg, #ffffff 0%, #e3e6eb 100%);
+    border: 1px solid #c2c7cf;
+    /* 下側の厚み（キーの側面）と落下影で立体感を作る */
+    box-shadow:
+      0 6px 0 #aeb4be,
+      0 10px 16px rgba(31, 38, 48, 0.20),
+      inset 0 1px 0 #ffffff,
+      inset 0 -2px 3px rgba(31, 38, 48, 0.06);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.12s ease;
+  }
+  @media (hover: hover) {
+    .key:hover { filter: brightness(1.04); }
+  }
+  /* 押し込んだ状態：キー全体が下がり、厚みと影が潰れる */
+  .key:active {
+    transform: translateY(5px);
+    box-shadow:
+      0 1px 0 #aeb4be,
+      0 3px 6px rgba(31, 38, 48, 0.18),
+      inset 0 1px 0 #ffffff,
+      inset 0 2px 5px rgba(31, 38, 48, 0.10);
+  }
+  .key:focus-visible { outline: 3px solid #6fc3ff; outline-offset: 2px; }
+
+  /* 列ずらし：1・3列目のキーは、キー高さ（＝列の幅）の20% 下げる（2列目が基準）。
+     押し込み時は ずらし分＋5px で、沈み込みの動きがずらしに埋もれないようにする */
+  .key.down { transform: translateY(15.2px); transform: translateY(calc(var(--wc) * 0.2)); }
+  .key.down:active { transform: translateY(20.2px); transform: translateY(calc(var(--wc) * 0.2 + 5px)); }
+
+  /* BS：柔らかい赤のキー */
+  .key.bs {
+    color: #7c2d26;
+    background: linear-gradient(180deg, #ffe7e4 0%, #f2aca4 100%);
+    border-color: #d89088;
+    box-shadow:
+      0 6px 0 #c07a72,
+      0 10px 16px rgba(124, 45, 38, 0.20),
+      inset 0 1px 0 #fff5f3,
+      inset 0 -2px 3px rgba(124, 45, 38, 0.08);
+  }
+  .key.bs:active {
+    box-shadow:
+      0 1px 0 #c07a72,
+      0 3px 6px rgba(124, 45, 38, 0.18),
+      inset 0 1px 0 #fff5f3,
+      inset 0 2px 5px rgba(124, 45, 38, 0.12);
+  }
+  /* En：主役の青いキー（文字は白）。右側4列目の縦長キーとして絶対配置。
+     位置の計算（キー高さ＝列の幅 wc、行間10px、受け台のpadding-top 20px）：
+       高さは従来の2倍にして上へ伸ばした（下端は「0」キーの下端で固定）：
+       上端 = wc×1.2 + 26px → 下げた列の2行目（4・6キー）の上端に揃う
+       高さ = wc×3 + 20px（従来 wc×1.5 + 10px の2倍）
+       幅   = (100% - 8px×3) ÷ 4 = 25% - 6px（他キーと同じ列幅） */
+  .key.en {
+    position: absolute;
+    right: 0;
+    top: 124px; /* 固定値フォールバック */
+    top: calc(var(--wc) * 1.2 + 26px);
+    width: calc(25% - 6px);
+    height: 266px; /* 固定値フォールバック */
+    height: calc(var(--wc) * 3 + 20px);
+    color: #ffffff;
+    background: linear-gradient(180deg, #63aef8 0%, #2f7fe0 100%);
+    border-color: #2f6fc0;
+    text-shadow: 0 1px 2px rgba(18, 58, 110, 0.45);
+    box-shadow:
+      0 6px 0 #1f5fb4,
+      0 10px 16px rgba(31, 95, 180, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -2px 3px rgba(18, 58, 110, 0.18);
+  }
+  .key.en:active {
+    box-shadow:
+      0 1px 0 #1f5fb4,
+      0 3px 6px rgba(31, 95, 180, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 2px 5px rgba(18, 58, 110, 0.22);
+  }
+  /* ===== ペース・案内 ===== */
+  #pace {
+    align-self: center;
+    display: inline-block;
+    margin-top: 9px;
+    padding: 8px 26px;
+    font-size: 21px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: #232830;
+    background: linear-gradient(180deg, #ffffff, #e8ebef);
+    border: 1px solid #ccd1d9;
+    border-radius: 999px;
+    box-shadow: 0 2px 5px rgba(31, 38, 48, 0.10), inset 0 1px 0 #ffffff;
+  }
+  .hint {
+    margin-top: 27px; /* 下がったキーのはみ出し＋影より大きく取り、重なりを防ぐ */
+    font-size: 12px;
+    color: #9aa1ab;
+  }
+  /* ===== 画面の高さに合わせた段階縮小（スクロール無しで収める） =====
+     キー高さ・行間・ずらし量・Enの位置は各段階でセットで変え、
+     Enの上端＝「3」の中央、下端＝「0」の下端、の関係は全段階で保ちます */
+  @media (max-height: 820px) {
+    .app { padding: 12px 16px 10px; --wc: min(calc((100vw - 56px) / 4), 96px); }
+    .title { font-size: 21px; }
+    .title .vc { font-size: 25px; }
+    .title-bar { margin-top: 5px; }
+    .controls { margin-top: 8px; }
+    .range-bar { margin-top: 8px; }
+    .range-btn { height: 33px; font-size: 13px; }
+    .ctl { height: 40px; }
+    #pace { margin-top: 6px; padding: 6px 20px; font-size: 18px; }
+    .display { margin-top: 6px; padding: 10px 12px 8px; }
+    #numberLabel { font-size: 20px; }
+    #inputLabel { font-size: 30px; min-height: 38px; }
+    .keypad-wrap { padding-top: 10px; }
+    .keypad { gap: 8px 8px; }
+    .bottom-row { margin-top: 8px; }
+    .key { font-size: 22px; }
+    /* En: 上端 = wc×1.2 + 18px（2行目の上端） / 高さ = wc×3 + 16px（従来の2倍） */
+    .key.en { top: calc(var(--wc) * 1.2 + 18px); height: calc(var(--wc) * 3 + 16px); }
+    .hint { margin-top: 20px; }
+  }
+  @media (max-height: 680px) {
+    .app { padding: 8px 14px 8px; --wc: min(calc((100vw - 52px) / 4), 96px); }
+    .title { font-size: 18px; }
+    .fs-btn { height: 28px; padding: 0 8px; font-size: 11px; }
+    .title .vc { font-size: 22px; }
+    .title-bar { margin-top: 4px; }
+    .controls { margin-top: 6px; }
+    .range-bar { margin-top: 8px; }
+    .range-btn { height: 31px; font-size: 12px; }
+    .ctl { height: 36px; font-size: 14px; }
+    #pace { margin-top: 6px; padding: 3px 16px; font-size: 16px; }
+    .display { margin-top: 6px; padding: 6px 10px 6px; }
+    #numberLabel { font-size: 20px; }
+    #inputLabel { font-size: 25px; min-height: 28px; }
+    #answerLabel { font-size: 13px; min-height: 18px; margin-top: 4px; }
+    .keypad-wrap { padding-top: 6px; }
+    .keypad { gap: 6px 8px; }
+    .bottom-row { margin-top: 6px; }
+    .key { font-size: 21px; }
+    .divider { margin: 4px 26px 5px; }
+    /* En: 上端 = wc×1.2 + 12px（2行目の上端） / 高さ = wc×3 + 12px（従来の2倍） */
+    .key.en { top: calc(var(--wc) * 1.2 + 12px); height: calc(var(--wc) * 3 + 12px); }
+    .hint { margin-top: 16px; font-size: 11px; }
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title-row">
+    <div class="title">二特<span class="vc">VC</span>トレーニング</div>
+    <button type="button" id="fsBtn" class="fs-btn">全画面表示</button>
+  </div>
+  <div class="title-bar"></div>
+
+  <!-- 出題範囲の選択（先頭2桁） -->
+  <div class="range-bar">
+    <button type="button" class="range-btn" data-range="10">10</button>
+    <button type="button" class="range-btn" data-range="11">11</button>
+    <button type="button" class="range-btn" data-range="12">12</button>
+    <button type="button" class="range-btn" data-range="13">13</button>
+    <button type="button" class="range-btn" data-range="14">14</button>
+    <button type="button" class="range-btn" data-range="15">15</button>
+    <button type="button" class="range-btn selected" data-range="all">10〜15</button>
+  </div>
+
+  <!-- 上部コントロール -->
+  <div class="controls">
+    <button type="button" id="startStopBtn" class="ctl start">スタート</button>
+  </div>
+
+  <div id="pace">平均 0.0 件/分</div>
+
+  <!-- 表示エリア -->
+  <div class="display">
+    <div class="panel-label">TARGET</div>
+    <div id="numberLabel">--</div>
+    <div class="divider"></div>
+    <div class="panel-label">YOUR INPUT</div>
+    <div id="inputLabel">1--</div>
+    <div id="answerLabel"></div>
+  </div>
+
+  <!-- テンキーエリア：左3列に数字、最下段に0・BS（幅広）、右4列目にEn -->
+  <div class="keypad-wrap">
+  <div class="keypad">
+    <button type="button" class="key down" data-key="7">7</button>
+    <button type="button" class="key" data-key="8">8</button>
+    <button type="button" class="key down" data-key="9">9</button>
+    <button type="button" class="key down" data-key="4">4</button>
+    <button type="button" class="key" data-key="5">5</button>
+    <button type="button" class="key down" data-key="6">6</button>
+    <button type="button" class="key down" data-key="1">1</button>
+    <button type="button" class="key" data-key="2">2</button>
+    <button type="button" class="key down" data-key="3">3</button>
+  </div>
+  <div class="bottom-row">
+    <button type="button" class="key down" data-key="0">0</button>
+    <button type="button" class="key bs down" data-key="BS" aria-label="1文字消す">BS</button>
+  </div>
+  <button type="button" class="key en" data-key="En" aria-label="判定する">En</button>
+  </div>
+
+  <div class="hint">キーボードの 0〜9・Backspace・Enter でも操作できます</div>
+</div>
+
+<script>
+"use strict";
+// VCトレーニング（vc.html）の仕組みを基にした、東京都23区の郵便番号トレーニングです。
+// 遊び方：住所（区名＋町名）がランダムに表示されるので、その住所の郵便番号（先頭3桁）の
+//         2桁目・3桁目を入力します（1桁目は「1」で固定）。
+//         間違えた場合は入力をリセットし、答えを赤文字で表示します。
+//         正解の場合は赤字で「正解」と表示し、少し置いてから次の住所へ進みます。
+// 出題範囲：郵便番号の先頭3桁が 100〜158 の住所だけです
+//         （新宿区・中野区・杉並区・豊島区・板橋区・練馬区は範囲外のため出題されません）。
+// 出題データ：日本郵便が公開する郵便番号データ（KEN_ALL、2026年10月30日更新分）から作成。
+//         ・出題するのは、町名（分かれる場合は丁目まで）で3桁が1つに決まる住所だけです
+//         ・町内で3桁が分かれる住所は、丁目ごとに分けて出題します
+//           （例：港区 芝 1～3丁目 → 105、4、5丁目 → 108）
+//         ・ただし江戸川・西瑞江（江戸川区）のように、丁目の中の「番」で分かれる
+//           2町は、丁目表示では区別できないため出題から除いています
+//         ・ビルごとの個別番号は一般の町名の番号とは別扱いにしています
+
+// タイトル横の「全画面表示」ボタンで、全画面の開始/終了ができます。
+// 上部の範囲ボタンで、先頭2桁（10〜15）ごとに問題を絞れます。
+// 例：「10」を選ぶと 100〜108 の問題だけが出ます。「10〜15」は全部です。
+// 出題リスト：[区名, 町名, 郵便番号の先頭3桁]（3桁が100〜158のものだけ）
+var QUESTIONS = [
+  // 千代田区
+  ["千代田区", "一ツ橋 1丁目", "100"],
+  ["千代田区", "一ツ橋 2丁目", "101"],
+  ["千代田区", "一番町", "102"],
+  ["千代田区", "三番町", "102"],
+  ["千代田区", "丸の内", "100"],
+  ["千代田区", "九段北", "102"],
+  ["千代田区", "九段南", "102"],
+  ["千代田区", "二番町", "102"],
+  ["千代田区", "五番町", "102"],
+  ["千代田区", "六番町", "102"],
+  ["千代田区", "内幸町", "100"],
+  ["千代田区", "内神田", "101"],
+  ["千代田区", "北の丸公園", "102"],
+  ["千代田区", "千代田", "100"],
+  ["千代田区", "四番町", "102"],
+  ["千代田区", "外神田", "101"],
+  ["千代田区", "大手町", "100"],
+  ["千代田区", "富士見", "102"],
+  ["千代田区", "岩本町", "101"],
+  ["千代田区", "平河町", "102"],
+  ["千代田区", "日比谷公園", "100"],
+  ["千代田区", "有楽町", "100"],
+  ["千代田区", "東神田", "101"],
+  ["千代田区", "永田町", "100"],
+  ["千代田区", "皇居外苑", "100"],
+  ["千代田区", "神田三崎町", "101"],
+  ["千代田区", "神田佐久間河岸", "101"],
+  ["千代田区", "神田佐久間町", "101"],
+  ["千代田区", "神田北乗物町", "101"],
+  ["千代田区", "神田司町", "101"],
+  ["千代田区", "神田和泉町", "101"],
+  ["千代田区", "神田多町", "101"],
+  ["千代田区", "神田富山町", "101"],
+  ["千代田区", "神田小川町", "101"],
+  ["千代田区", "神田岩本町", "101"],
+  ["千代田区", "神田平河町", "101"],
+  ["千代田区", "神田東松下町", "101"],
+  ["千代田区", "神田東紺屋町", "101"],
+  ["千代田区", "神田松永町", "101"],
+  ["千代田区", "神田淡路町", "101"],
+  ["千代田区", "神田猿楽町", "101"],
+  ["千代田区", "神田相生町", "101"],
+  ["千代田区", "神田神保町", "101"],
+  ["千代田区", "神田紺屋町", "101"],
+  ["千代田区", "神田練塀町", "101"],
+  ["千代田区", "神田美倉町", "101"],
+  ["千代田区", "神田美土代町", "101"],
+  ["千代田区", "神田花岡町", "101"],
+  ["千代田区", "神田西福田町", "101"],
+  ["千代田区", "神田錦町", "101"],
+  ["千代田区", "神田鍛冶町", "101"],
+  ["千代田区", "神田須田町", "101"],
+  ["千代田区", "神田駿河台", "101"],
+  ["千代田区", "紀尾井町", "102"],
+  ["千代田区", "西神田", "101"],
+  ["千代田区", "鍛冶町", "101"],
+  ["千代田区", "隼町", "102"],
+  ["千代田区", "霞が関", "100"],
+  ["千代田区", "飯田橋", "102"],
+  ["千代田区", "麹町", "102"],
+  // 中央区
+  ["中央区", "京橋", "104"],
+  ["中央区", "佃", "104"],
+  ["中央区", "入船", "104"],
+  ["中央区", "八丁堀", "104"],
+  ["中央区", "八重洲 1丁目", "103"],
+  ["中央区", "八重洲 2丁目", "104"],
+  ["中央区", "勝どき", "104"],
+  ["中央区", "新富", "104"],
+  ["中央区", "新川", "104"],
+  ["中央区", "日本橋", "103"],
+  ["中央区", "日本橋中洲", "103"],
+  ["中央区", "日本橋久松町", "103"],
+  ["中央区", "日本橋人形町", "103"],
+  ["中央区", "日本橋兜町", "103"],
+  ["中央区", "日本橋堀留町", "103"],
+  ["中央区", "日本橋大伝馬町", "103"],
+  ["中央区", "日本橋室町", "103"],
+  ["中央区", "日本橋富沢町", "103"],
+  ["中央区", "日本橋小伝馬町", "103"],
+  ["中央区", "日本橋小網町", "103"],
+  ["中央区", "日本橋小舟町", "103"],
+  ["中央区", "日本橋本町", "103"],
+  ["中央区", "日本橋本石町", "103"],
+  ["中央区", "日本橋横山町", "103"],
+  ["中央区", "日本橋浜町", "103"],
+  ["中央区", "日本橋箱崎町", "103"],
+  ["中央区", "日本橋茅場町", "103"],
+  ["中央区", "日本橋蛎殻町", "103"],
+  ["中央区", "日本橋馬喰町", "103"],
+  ["中央区", "明石町", "104"],
+  ["中央区", "晴海", "104"],
+  ["中央区", "月島", "104"],
+  ["中央区", "東日本橋", "103"],
+  ["中央区", "浜離宮庭園", "104"],
+  ["中央区", "湊", "104"],
+  ["中央区", "築地", "104"],
+  ["中央区", "豊海町", "104"],
+  ["中央区", "銀座", "104"],
+  // 港区
+  ["港区", "三田", "108"],
+  ["港区", "元赤坂", "107"],
+  ["港区", "元麻布", "106"],
+  ["港区", "六本木", "106"],
+  ["港区", "北青山", "107"],
+  ["港区", "南青山", "107"],
+  ["港区", "南麻布", "106"],
+  ["港区", "台場", "135"],
+  ["港区", "愛宕", "105"],
+  ["港区", "新橋", "105"],
+  ["港区", "東新橋", "105"],
+  ["港区", "東麻布", "106"],
+  ["港区", "浜松町", "105"],
+  ["港区", "海岸 1、2丁目", "105"],
+  ["港区", "海岸 3丁目", "108"],
+  ["港区", "港南", "108"],
+  ["港区", "白金", "108"],
+  ["港区", "白金台", "108"],
+  ["港区", "芝 1～3丁目", "105"],
+  ["港区", "芝 4、5丁目", "108"],
+  ["港区", "芝公園", "105"],
+  ["港区", "芝大門", "105"],
+  ["港区", "芝浦 1丁目", "105"],
+  ["港区", "芝浦 2～4丁目", "108"],
+  ["港区", "虎ノ門", "105"],
+  ["港区", "西新橋", "105"],
+  ["港区", "西麻布", "106"],
+  ["港区", "赤坂", "107"],
+  ["港区", "高輪", "108"],
+  ["港区", "麻布十番", "106"],
+  ["港区", "麻布台", "106"],
+  ["港区", "麻布永坂町", "106"],
+  ["港区", "麻布狸穴町", "106"],
+  // 文京区
+  ["文京区", "千石", "112"],
+  ["文京区", "千駄木", "113"],
+  ["文京区", "向丘", "113"],
+  ["文京区", "大塚", "112"],
+  ["文京区", "小日向", "112"],
+  ["文京区", "小石川", "112"],
+  ["文京区", "弥生", "113"],
+  ["文京区", "後楽", "112"],
+  ["文京区", "春日", "112"],
+  ["文京区", "本郷", "113"],
+  ["文京区", "本駒込", "113"],
+  ["文京区", "根津", "113"],
+  ["文京区", "水道", "112"],
+  ["文京区", "湯島", "113"],
+  ["文京区", "白山 1丁目", "113"],
+  ["文京区", "白山 2～5丁目", "112"],
+  ["文京区", "目白台", "112"],
+  ["文京区", "西片", "113"],
+  ["文京区", "関口", "112"],
+  ["文京区", "音羽", "112"],
+  // 台東区
+  ["台東区", "三ノ輪", "110"],
+  ["台東区", "三筋", "111"],
+  ["台東区", "上野", "110"],
+  ["台東区", "上野公園", "110"],
+  ["台東区", "上野桜木", "110"],
+  ["台東区", "下谷", "110"],
+  ["台東区", "今戸", "111"],
+  ["台東区", "元浅草", "111"],
+  ["台東区", "入谷", "110"],
+  ["台東区", "北上野", "110"],
+  ["台東区", "千束", "111"],
+  ["台東区", "台東", "110"],
+  ["台東区", "寿", "111"],
+  ["台東区", "小島", "111"],
+  ["台東区", "日本堤", "111"],
+  ["台東区", "東上野", "110"],
+  ["台東区", "東浅草", "111"],
+  ["台東区", "松が谷", "111"],
+  ["台東区", "柳橋", "111"],
+  ["台東区", "根岸", "110"],
+  ["台東区", "橋場", "111"],
+  ["台東区", "池之端", "110"],
+  ["台東区", "浅草", "111"],
+  ["台東区", "浅草橋", "111"],
+  ["台東区", "清川", "111"],
+  ["台東区", "秋葉原", "110"],
+  ["台東区", "竜泉", "110"],
+  ["台東区", "花川戸", "111"],
+  ["台東区", "蔵前", "111"],
+  ["台東区", "西浅草", "111"],
+  ["台東区", "谷中", "110"],
+  ["台東区", "雷門", "111"],
+  ["台東区", "駒形", "111"],
+  ["台東区", "鳥越", "111"],
+  // 墨田区
+  ["墨田区", "両国", "130"],
+  ["墨田区", "亀沢", "130"],
+  ["墨田区", "京島", "131"],
+  ["墨田区", "八広", "131"],
+  ["墨田区", "千歳", "130"],
+  ["墨田区", "向島", "131"],
+  ["墨田区", "吾妻橋", "130"],
+  ["墨田区", "堤通", "131"],
+  ["墨田区", "墨田", "131"],
+  ["墨田区", "太平", "130"],
+  ["墨田区", "押上", "131"],
+  ["墨田区", "文花", "131"],
+  ["墨田区", "本所", "130"],
+  ["墨田区", "東向島", "131"],
+  ["墨田区", "東墨田", "131"],
+  ["墨田区", "東駒形", "130"],
+  ["墨田区", "業平", "130"],
+  ["墨田区", "横川", "130"],
+  ["墨田区", "横網", "130"],
+  ["墨田区", "江東橋", "130"],
+  ["墨田区", "石原", "130"],
+  ["墨田区", "立川", "130"],
+  ["墨田区", "立花", "131"],
+  ["墨田区", "緑", "130"],
+  ["墨田区", "菊川", "130"],
+  ["墨田区", "錦糸", "130"],
+  // 江東区
+  ["江東区", "三好", "135"],
+  ["江東区", "中央防波堤", "135"],
+  ["江東区", "亀戸", "136"],
+  ["江東区", "住吉", "135"],
+  ["江東区", "佐賀", "135"],
+  ["江東区", "冬木", "135"],
+  ["江東区", "北砂", "136"],
+  ["江東区", "千田", "135"],
+  ["江東区", "千石", "135"],
+  ["江東区", "南砂", "136"],
+  ["江東区", "古石場", "135"],
+  ["江東区", "塩浜", "135"],
+  ["江東区", "夢の島", "136"],
+  ["江東区", "大島", "136"],
+  ["江東区", "富岡", "135"],
+  ["江東区", "常盤", "135"],
+  ["江東区", "平野", "135"],
+  ["江東区", "扇橋", "135"],
+  ["江東区", "新大橋", "135"],
+  ["江東区", "新木場", "136"],
+  ["江東区", "新砂", "136"],
+  ["江東区", "有明", "135"],
+  ["江東区", "木場", "135"],
+  ["江東区", "東砂", "136"],
+  ["江東区", "東陽", "135"],
+  ["江東区", "東雲", "135"],
+  ["江東区", "枝川", "135"],
+  ["江東区", "森下", "135"],
+  ["江東区", "毛利", "135"],
+  ["江東区", "永代", "135"],
+  ["江東区", "海の森", "135"],
+  ["江東区", "海辺", "135"],
+  ["江東区", "深川", "135"],
+  ["江東区", "清澄", "135"],
+  ["江東区", "潮見", "135"],
+  ["江東区", "牡丹", "135"],
+  ["江東区", "猿江", "135"],
+  ["江東区", "白河", "135"],
+  ["江東区", "石島", "135"],
+  ["江東区", "福住", "135"],
+  ["江東区", "若洲", "136"],
+  ["江東区", "豊洲", "135"],
+  ["江東区", "越中島", "135"],
+  ["江東区", "辰巳", "135"],
+  ["江東区", "門前仲町", "135"],
+  ["江東区", "青海", "135"],
+  ["江東区", "高橋", "135"],
+  // 品川区
+  ["品川区", "上大崎", "141"],
+  ["品川区", "中延", "142"],
+  ["品川区", "二葉", "142"],
+  ["品川区", "八潮", "140"],
+  ["品川区", "勝島", "140"],
+  ["品川区", "北品川 1～4丁目", "140"],
+  ["品川区", "北品川 5、6丁目", "141"],
+  ["品川区", "南品川", "140"],
+  ["品川区", "南大井", "140"],
+  ["品川区", "大井", "140"],
+  ["品川区", "大崎", "141"],
+  ["品川区", "小山", "142"],
+  ["品川区", "小山台", "142"],
+  ["品川区", "平塚", "142"],
+  ["品川区", "広町", "140"],
+  ["品川区", "戸越", "142"],
+  ["品川区", "旗の台", "142"],
+  ["品川区", "東中延", "142"],
+  ["品川区", "東五反田", "141"],
+  ["品川区", "東八潮", "135"],
+  ["品川区", "東品川", "140"],
+  ["品川区", "東大井", "140"],
+  ["品川区", "荏原", "142"],
+  ["品川区", "西中延", "142"],
+  ["品川区", "西五反田", "141"],
+  ["品川区", "西品川", "141"],
+  ["品川区", "西大井", "140"],
+  ["品川区", "豊町", "142"],
+  // 目黒区
+  ["目黒区", "三田", "153"],
+  ["目黒区", "上目黒", "153"],
+  ["目黒区", "下目黒", "153"],
+  ["目黒区", "中央町", "152"],
+  ["目黒区", "中根", "152"],
+  ["目黒区", "中町", "153"],
+  ["目黒区", "中目黒", "153"],
+  ["目黒区", "五本木", "153"],
+  ["目黒区", "八雲", "152"],
+  ["目黒区", "南", "152"],
+  ["目黒区", "原町", "152"],
+  ["目黒区", "大岡山", "152"],
+  ["目黒区", "大橋", "153"],
+  ["目黒区", "平町", "152"],
+  ["目黒区", "東が丘", "152"],
+  ["目黒区", "東山", "153"],
+  ["目黒区", "柿の木坂", "152"],
+  ["目黒区", "洗足", "152"],
+  ["目黒区", "目黒", "153"],
+  ["目黒区", "目黒本町", "152"],
+  ["目黒区", "碑文谷", "152"],
+  ["目黒区", "祐天寺", "153"],
+  ["目黒区", "緑が丘", "152"],
+  ["目黒区", "自由が丘", "152"],
+  ["目黒区", "青葉台", "153"],
+  ["目黒区", "駒場", "153"],
+  ["目黒区", "鷹番", "152"],
+  // 大田区
+  ["大田区", "ふるさとの浜辺公園", "143"],
+  ["大田区", "上池台", "145"],
+  ["大田区", "下丸子", "146"],
+  ["大田区", "中央", "143"],
+  ["大田区", "中馬込", "143"],
+  ["大田区", "久が原", "146"],
+  ["大田区", "京浜島", "143"],
+  ["大田区", "令和島", "135"],
+  ["大田区", "仲六郷", "144"],
+  ["大田区", "仲池上", "146"],
+  ["大田区", "北千束", "145"],
+  ["大田区", "北嶺町", "145"],
+  ["大田区", "北糀谷", "144"],
+  ["大田区", "北馬込", "143"],
+  ["大田区", "千鳥", "146"],
+  ["大田区", "南久が原", "146"],
+  ["大田区", "南六郷", "144"],
+  ["大田区", "南千束", "145"],
+  ["大田区", "南蒲田", "144"],
+  ["大田区", "南雪谷", "145"],
+  ["大田区", "南馬込", "143"],
+  ["大田区", "城南島", "143"],
+  ["大田区", "多摩川", "146"],
+  ["大田区", "大森中", "143"],
+  ["大田区", "大森北", "143"],
+  ["大田区", "大森南", "143"],
+  ["大田区", "大森本町", "143"],
+  ["大田区", "大森東", "143"],
+  ["大田区", "大森西", "143"],
+  ["大田区", "山王", "143"],
+  ["大田区", "平和の森公園", "143"],
+  ["大田区", "平和島", "143"],
+  ["大田区", "新蒲田", "144"],
+  ["大田区", "昭和島", "143"],
+  ["大田区", "本羽田", "144"],
+  ["大田区", "東六郷", "144"],
+  ["大田区", "東嶺町", "145"],
+  ["大田区", "東海", "143"],
+  ["大田区", "東矢口", "146"],
+  ["大田区", "東糀谷", "144"],
+  ["大田区", "東蒲田", "144"],
+  ["大田区", "東雪谷", "145"],
+  ["大田区", "東馬込", "143"],
+  ["大田区", "池上", "146"],
+  ["大田区", "田園調布", "145"],
+  ["大田区", "田園調布南", "145"],
+  ["大田区", "田園調布本町", "145"],
+  ["大田区", "矢口", "146"],
+  ["大田区", "石川町", "145"],
+  ["大田区", "羽田", "144"],
+  ["大田区", "羽田旭町", "144"],
+  ["大田区", "羽田空港", "144"],
+  ["大田区", "萩中", "144"],
+  ["大田区", "蒲田", "144"],
+  ["大田区", "蒲田本町", "144"],
+  ["大田区", "西六郷", "144"],
+  ["大田区", "西嶺町", "145"],
+  ["大田区", "西糀谷", "144"],
+  ["大田区", "西蒲田", "144"],
+  ["大田区", "西馬込", "143"],
+  ["大田区", "雪谷大塚町", "145"],
+  ["大田区", "鵜の木", "146"],
+  // 世田谷区
+  ["世田谷区", "三宿", "154"],
+  ["世田谷区", "三軒茶屋", "154"],
+  ["世田谷区", "上北沢", "156"],
+  ["世田谷区", "上用賀", "158"],
+  ["世田谷区", "上祖師谷", "157"],
+  ["世田谷区", "上野毛", "158"],
+  ["世田谷区", "上馬", "154"],
+  ["世田谷区", "下馬", "154"],
+  ["世田谷区", "世田谷", "154"],
+  ["世田谷区", "中町", "158"],
+  ["世田谷区", "代沢", "155"],
+  ["世田谷区", "代田", "155"],
+  ["世田谷区", "八幡山", "156"],
+  ["世田谷区", "北沢", "155"],
+  ["世田谷区", "北烏山", "157"],
+  ["世田谷区", "千歳台", "157"],
+  ["世田谷区", "南烏山", "157"],
+  ["世田谷区", "喜多見", "157"],
+  ["世田谷区", "大原", "156"],
+  ["世田谷区", "大蔵", "157"],
+  ["世田谷区", "太子堂", "154"],
+  ["世田谷区", "奥沢", "158"],
+  ["世田谷区", "宇奈根", "157"],
+  ["世田谷区", "宮坂", "156"],
+  ["世田谷区", "尾山台", "158"],
+  ["世田谷区", "岡本", "157"],
+  ["世田谷区", "弦巻", "154"],
+  ["世田谷区", "成城", "157"],
+  ["世田谷区", "新町", "154"],
+  ["世田谷区", "東玉川", "158"],
+  ["世田谷区", "松原", "156"],
+  ["世田谷区", "桜", "156"],
+  ["世田谷区", "桜上水", "156"],
+  ["世田谷区", "桜丘", "156"],
+  ["世田谷区", "桜新町", "154"],
+  ["世田谷区", "梅丘", "154"],
+  ["世田谷区", "池尻", "154"],
+  ["世田谷区", "深沢", "158"],
+  ["世田谷区", "瀬田", "158"],
+  ["世田谷区", "玉堤", "158"],
+  ["世田谷区", "玉川", "158"],
+  ["世田谷区", "玉川台", "158"],
+  ["世田谷区", "玉川田園調布", "158"],
+  ["世田谷区", "用賀", "158"],
+  ["世田谷区", "砧", "157"],
+  ["世田谷区", "砧公園", "157"],
+  ["世田谷区", "祖師谷", "157"],
+  ["世田谷区", "等々力", "158"],
+  ["世田谷区", "粕谷", "157"],
+  ["世田谷区", "経堂", "156"],
+  ["世田谷区", "給田", "157"],
+  ["世田谷区", "羽根木", "156"],
+  ["世田谷区", "船橋", "156"],
+  ["世田谷区", "若林", "154"],
+  ["世田谷区", "豪徳寺", "154"],
+  ["世田谷区", "赤堤", "156"],
+  ["世田谷区", "野毛", "158"],
+  ["世田谷区", "野沢", "154"],
+  ["世田谷区", "鎌田", "157"],
+  ["世田谷区", "駒沢", "154"],
+  ["世田谷区", "駒沢公園", "154"],
+  // 渋谷区
+  ["渋谷区", "上原", "151"],
+  ["渋谷区", "代々木", "151"],
+  ["渋谷区", "代々木神園町", "151"],
+  ["渋谷区", "代官山町", "150"],
+  ["渋谷区", "元代々木町", "151"],
+  ["渋谷区", "円山町", "150"],
+  ["渋谷区", "初台", "151"],
+  ["渋谷区", "千駄ヶ谷", "151"],
+  ["渋谷区", "南平台町", "150"],
+  ["渋谷区", "大山町", "151"],
+  ["渋谷区", "宇田川町", "150"],
+  ["渋谷区", "富ヶ谷", "151"],
+  ["渋谷区", "幡ヶ谷", "151"],
+  ["渋谷区", "広尾", "150"],
+  ["渋谷区", "恵比寿", "150"],
+  ["渋谷区", "恵比寿南", "150"],
+  ["渋谷区", "恵比寿西", "150"],
+  ["渋谷区", "本町", "151"],
+  ["渋谷区", "東", "150"],
+  ["渋谷区", "松濤", "150"],
+  ["渋谷区", "桜丘町", "150"],
+  ["渋谷区", "渋谷", "150"],
+  ["渋谷区", "猿楽町", "150"],
+  ["渋谷区", "神南", "150"],
+  ["渋谷区", "神宮前", "150"],
+  ["渋谷区", "神山町", "150"],
+  ["渋谷区", "神泉町", "150"],
+  ["渋谷区", "笹塚", "151"],
+  ["渋谷区", "西原", "151"],
+  ["渋谷区", "道玄坂", "150"],
+  ["渋谷区", "鉢山町", "150"],
+  ["渋谷区", "階層不明）", "150"],
+  ["渋谷区", "鶯谷町", "150"],
+  // 北区
+  ["北区", "上中里", "114"],
+  ["北区", "上十条", "114"],
+  ["北区", "中十条", "114"],
+  ["北区", "中里", "114"],
+  ["北区", "十条仲原", "114"],
+  ["北区", "十条台", "114"],
+  ["北区", "堀船", "114"],
+  ["北区", "岩淵町", "115"],
+  ["北区", "岸町", "114"],
+  ["北区", "志茂", "115"],
+  ["北区", "昭和町", "114"],
+  ["北区", "東十条", "114"],
+  ["北区", "東田端", "114"],
+  ["北区", "栄町", "114"],
+  ["北区", "桐ケ丘", "115"],
+  ["北区", "浮間", "115"],
+  ["北区", "滝野川", "114"],
+  ["北区", "王子", "114"],
+  ["北区", "王子本町", "114"],
+  ["北区", "田端", "114"],
+  ["北区", "田端新町", "114"],
+  ["北区", "神谷", "115"],
+  ["北区", "西が丘", "115"],
+  ["北区", "西ケ原", "114"],
+  ["北区", "豊島", "114"],
+  ["北区", "赤羽", "115"],
+  ["北区", "赤羽北", "115"],
+  ["北区", "赤羽南", "115"],
+  ["北区", "赤羽台", "115"],
+  ["北区", "赤羽西", "115"],
+  // 荒川区
+  ["荒川区", "南千住", "116"],
+  ["荒川区", "東尾久", "116"],
+  ["荒川区", "東日暮里", "116"],
+  ["荒川区", "町屋", "116"],
+  ["荒川区", "荒川", "116"],
+  ["荒川区", "西尾久", "116"],
+  ["荒川区", "西日暮里", "116"],
+  // 足立区
+  ["足立区", "一ツ家", "121"],
+  ["足立区", "中央本町 1、2丁目", "120"],
+  ["足立区", "中央本町 3～5丁目", "121"],
+  ["足立区", "中川", "120"],
+  ["足立区", "伊興", "121"],
+  ["足立区", "伊興本町", "121"],
+  ["足立区", "佐野", "121"],
+  ["足立区", "保塚町", "121"],
+  ["足立区", "保木間", "121"],
+  ["足立区", "入谷", "121"],
+  ["足立区", "入谷町", "121"],
+  ["足立区", "六月", "121"],
+  ["足立区", "六木", "121"],
+  ["足立区", "六町", "121"],
+  ["足立区", "加平", "121"],
+  ["足立区", "加賀", "123"],
+  ["足立区", "北加平町", "121"],
+  ["足立区", "千住", "120"],
+  ["足立区", "千住中居町", "120"],
+  ["足立区", "千住仲町", "120"],
+  ["足立区", "千住元町", "120"],
+  ["足立区", "千住大川町", "120"],
+  ["足立区", "千住宮元町", "120"],
+  ["足立区", "千住寿町", "120"],
+  ["足立区", "千住旭町", "120"],
+  ["足立区", "千住曙町", "120"],
+  ["足立区", "千住東", "120"],
+  ["足立区", "千住柳町", "120"],
+  ["足立区", "千住桜木", "120"],
+  ["足立区", "千住橋戸町", "120"],
+  ["足立区", "千住河原町", "120"],
+  ["足立区", "千住緑町", "120"],
+  ["足立区", "千住関屋町", "120"],
+  ["足立区", "千住龍田町", "120"],
+  ["足立区", "南花畑", "121"],
+  ["足立区", "古千谷", "121"],
+  ["足立区", "古千谷本町", "121"],
+  ["足立区", "堀之内", "123"],
+  ["足立区", "大谷田", "120"],
+  ["足立区", "宮城", "120"],
+  ["足立区", "小台", "120"],
+  ["足立区", "島根", "121"],
+  ["足立区", "平野", "121"],
+  ["足立区", "弘道", "120"],
+  ["足立区", "扇", "123"],
+  ["足立区", "新田", "123"],
+  ["足立区", "日ノ出町", "120"],
+  ["足立区", "本木", "123"],
+  ["足立区", "本木北町", "123"],
+  ["足立区", "本木南町", "123"],
+  ["足立区", "本木東町", "123"],
+  ["足立区", "本木西町", "123"],
+  ["足立区", "東伊興", "121"],
+  ["足立区", "東保木間", "121"],
+  ["足立区", "東六月町", "121"],
+  ["足立区", "東和", "120"],
+  ["足立区", "東綾瀬", "120"],
+  ["足立区", "柳原", "120"],
+  ["足立区", "栗原", "123"],
+  ["足立区", "梅島", "121"],
+  ["足立区", "梅田", "123"],
+  ["足立区", "椿", "123"],
+  ["足立区", "江北", "123"],
+  ["足立区", "皿沼", "123"],
+  ["足立区", "神明", "121"],
+  ["足立区", "神明南", "121"],
+  ["足立区", "竹の塚", "121"],
+  ["足立区", "綾瀬", "120"],
+  ["足立区", "興野", "123"],
+  ["足立区", "舎人", "121"],
+  ["足立区", "舎人公園", "121"],
+  ["足立区", "舎人町", "121"],
+  ["足立区", "花畑", "121"],
+  ["足立区", "西伊興", "121"],
+  ["足立区", "西伊興町", "121"],
+  ["足立区", "西保木間", "121"],
+  ["足立区", "西加平", "121"],
+  ["足立区", "西新井", "123"],
+  ["足立区", "西新井本町", "123"],
+  ["足立区", "西新井栄町", "123"],
+  ["足立区", "西竹の塚", "121"],
+  ["足立区", "西綾瀬", "120"],
+  ["足立区", "谷中", "120"],
+  ["足立区", "谷在家", "123"],
+  ["足立区", "足立", "120"],
+  ["足立区", "辰沼", "121"],
+  ["足立区", "関原", "123"],
+  ["足立区", "青井 1～3丁目", "120"],
+  ["足立区", "青井 4～6丁目", "121"],
+  ["足立区", "鹿浜", "123"],
+  // 葛飾区
+  ["葛飾区", "お花茶屋", "124"],
+  ["葛飾区", "亀有", "125"],
+  ["葛飾区", "南水元", "125"],
+  ["葛飾区", "四つ木", "124"],
+  ["葛飾区", "堀切", "124"],
+  ["葛飾区", "奥戸", "124"],
+  ["葛飾区", "宝町", "124"],
+  ["葛飾区", "小菅", "124"],
+  ["葛飾区", "新宿", "125"],
+  ["葛飾区", "新小岩", "124"],
+  ["葛飾区", "東四つ木", "124"],
+  ["葛飾区", "東堀切", "124"],
+  ["葛飾区", "東新小岩", "124"],
+  ["葛飾区", "東水元", "125"],
+  ["葛飾区", "東立石", "124"],
+  ["葛飾区", "東金町", "125"],
+  ["葛飾区", "柴又", "125"],
+  ["葛飾区", "水元", "125"],
+  ["葛飾区", "水元公園", "125"],
+  ["葛飾区", "白鳥", "125"],
+  ["葛飾区", "立石", "124"],
+  ["葛飾区", "細田", "124"],
+  ["葛飾区", "西亀有 1、2丁目", "124"],
+  ["葛飾区", "西亀有 3、4丁目", "125"],
+  ["葛飾区", "西新小岩", "124"],
+  ["葛飾区", "西水元", "125"],
+  ["葛飾区", "金町", "125"],
+  ["葛飾区", "金町浄水場", "125"],
+  ["葛飾区", "鎌倉", "125"],
+  ["葛飾区", "青戸", "125"],
+  ["葛飾区", "高砂", "125"],
+  // 江戸川区
+  ["江戸川区", "一之江", "132"],
+  ["江戸川区", "一之江町", "134"],
+  ["江戸川区", "上一色", "133"],
+  ["江戸川区", "上篠崎", "133"],
+  ["江戸川区", "下篠崎町", "133"],
+  ["江戸川区", "中央", "132"],
+  ["江戸川区", "中葛西", "134"],
+  ["江戸川区", "二之江町", "134"],
+  ["江戸川区", "北小岩", "133"],
+  ["江戸川区", "北篠崎", "133"],
+  ["江戸川区", "北葛西", "134"],
+  ["江戸川区", "南小岩", "133"],
+  ["江戸川区", "南篠崎町", "133"],
+  ["江戸川区", "南葛西", "134"],
+  ["江戸川区", "大杉", "132"],
+  ["江戸川区", "宇喜田町", "134"],
+  ["江戸川区", "小松川", "132"],
+  ["江戸川区", "平井", "132"],
+  ["江戸川区", "新堀", "132"],
+  ["江戸川区", "春江町 1～3丁目", "132"],
+  ["江戸川区", "春江町 4、5丁目", "134"],
+  ["江戸川区", "本一色", "133"],
+  ["江戸川区", "東小岩", "133"],
+  ["江戸川区", "東小松川", "132"],
+  ["江戸川区", "東松本", "133"],
+  ["江戸川区", "東瑞江", "132"],
+  ["江戸川区", "東篠崎", "133"],
+  ["江戸川区", "東篠崎町", "133"],
+  ["江戸川区", "東葛西", "134"],
+  ["江戸川区", "松島", "132"],
+  ["江戸川区", "松本", "133"],
+  ["江戸川区", "松江", "132"],
+  ["江戸川区", "清新町", "134"],
+  ["江戸川区", "瑞江", "132"],
+  ["江戸川区", "篠崎町", "133"],
+  ["江戸川区", "臨海町", "134"],
+  ["江戸川区", "興宮町", "133"],
+  ["江戸川区", "船堀", "134"],
+  ["江戸川区", "西一之江", "132"],
+  ["江戸川区", "西小岩", "133"],
+  ["江戸川区", "西小松川町", "132"],
+  ["江戸川区", "西篠崎", "133"],
+  ["江戸川区", "西葛西", "134"],
+  ["江戸川区", "谷河内 1丁目", "132"],
+  ["江戸川区", "谷河内 2丁目", "133"],
+  ["江戸川区", "鹿骨", "133"],
+  ["江戸川区", "鹿骨町", "133"]
+];
+
+// 出題範囲（先頭2桁）："all" は 10〜15 の全部
+var rangeFilter = "all";
+var POOLS = {};  // 範囲ごとの問題リスト
+(function buildPools() {
+  POOLS["all"] = QUESTIONS;
+  var heads = ["10", "11", "12", "13", "14", "15"];
+  for (var i = 0; i < heads.length; i++) {
+    var head = heads[i];
+    POOLS[head] = [];
+    for (var j = 0; j < QUESTIONS.length; j++) {
+      if (QUESTIONS[j][2].substring(0, 2) === head) {
+        POOLS[head].push(QUESTIONS[j]);
+      }
+    }
+  }
+})();
+
+function currentPool() {
+  return POOLS[rangeFilter];
+}
+
+var currentQ = null;     // 現在の問題（QUESTIONSの要素）
+var typed = "";          // 入力済みの桁（2桁目・3桁目、最大2文字）
+var doneCount = 0;       // 完了した件数（ペース計算用。画面には件数を出さない）
+var running = false;     // 計測中かどうか
+var startTime = 0;       // スタートした時刻（Date.now()）
+var frozenElapsed = 0;   // ストップ時点の経過時間（ミリ秒）。ペース表示を固定する
+var timerId = null;      // ペース表示を更新するタイマー
+var nextTimerId = null;  // 「正解」表示から次の問題へ移るタイマー
+var advancing = false;   // 「正解」表示中はキー入力を受け付けない
+
+var numberLabel   = document.getElementById("numberLabel");
+var inputLabel    = document.getElementById("inputLabel");
+var answerLabel   = document.getElementById("answerLabel");
+var paceLabel     = document.getElementById("pace");
+var startStopBtn  = document.getElementById("startStopBtn");
+
+// 平均ペース（1分間に何件完了したか）を表示する
+function updatePace() {
+  var elapsed = running ? (Date.now() - startTime) : frozenElapsed;
+  var pace = 0;
+  if (elapsed > 0 && doneCount > 0) {
+    pace = doneCount / (elapsed / 60000);
+  }
+  paceLabel.textContent = "平均 " + pace.toFixed(1) + " 件/分";
+}
+
+// 入力表示を描き直す：1桁目は「1」固定、未入力の桁は「-」
+function renderInput() {
+  var d2 = typed.length >= 1 ? typed.charAt(0) : "-";
+  var d3 = typed.length >= 2 ? typed.charAt(1) : "-";
+  inputLabel.textContent = "1" + d2 + d3;
+}
+
+// 次の問題：住所をランダムに選ぶ（同じ問題が続かないようにする）
+function showNextQuestion() {
+  var pool = currentPool();
+  var next = null;
+  do {
+    next = pool[Math.floor(Math.random() * pool.length)];
+  } while (pool.length > 1 && currentQ !== null && next === currentQ);
+  currentQ = next;
+  typed = "";
+  numberLabel.textContent = currentQ[0] + " " + currentQ[1];
+  answerLabel.textContent = "";
+  renderInput();
+}
+
+// キー入力の処理。ただし計測中（スタート後）だけ受け付ける
+function onButtonClick(char) {
+  if (!running || advancing) {
+    return;
+  }
+
+  if (char === "En") {
+    // 2桁そろうまでは判定しない
+    if (typed.length < 2) {
+      return;
+    }
+    var answer = "1" + typed;
+    if (answer === currentQ[2]) {
+      doneCount++;       // 1件完了として数える（ペース計算用）
+      updatePace();
+      // 正解なら赤字で「正解」と表示し、少し置いてから次の住所へ進む
+      advancing = true;
+      answerLabel.textContent = "正解";
+      nextTimerId = setTimeout(function () {
+        nextTimerId = null;
+        advancing = false;
+        if (running) {
+          showNextQuestion();
+        }
+      }, 800);
+    } else {
+      // 間違いなら入力をリセットし、答えを赤文字で表示する
+      typed = "";
+      renderInput();
+      answerLabel.textContent = "答え：" + currentQ[0] + " " + currentQ[1] +
+        " は " + currentQ[2] + " です";
+    }
+
+  } else if (char === "BS") {
+    // 一文字消去
+    typed = typed.slice(0, -1);
+    renderInput();
+
+  } else {
+    // 数字キー：2桁まで入力できる
+    if (typed.length < 2) {
+      typed = typed + char;
+      renderInput();
+    }
+  }
+}
+
+// スタート：件数とタイマーをリセットして計測開始
+function startTraining() {
+  running = true;
+  doneCount = 0;
+  frozenElapsed = 0;
+  startTime = Date.now();
+  if (nextTimerId !== null) {
+    clearTimeout(nextTimerId);
+    nextTimerId = null;
+  }
+  advancing = false;
+  showNextQuestion();
+  updatePace();
+  if (timerId !== null) {
+    clearInterval(timerId);
+  }
+  timerId = setInterval(updatePace, 500); // 0.5秒ごとにペースを更新
+  startStopBtn.textContent = "ストップ";
+  startStopBtn.className = "ctl stop";
+}
+
+// ストップ：その時点のペースで表示を固定し、キー入力を止める
+function stopTraining() {
+  if (!running) {
+    return;
+  }
+  frozenElapsed = Date.now() - startTime;
+  running = false;
+  if (nextTimerId !== null) {
+    clearTimeout(nextTimerId);  // 「正解」表示中のまま止めたら、次の問題へは進まない
+    nextTimerId = null;
+  }
+  advancing = false;
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  updatePace();
+  startStopBtn.textContent = "スタート";
+  startStopBtn.className = "ctl start";
+}
+
+startStopBtn.addEventListener("click", function () {
+  if (running) {
+    stopTraining();
+  } else {
+    startTraining();
+  }
+  startStopBtn.blur();
+});
+
+
+// 全画面ボタン：押すたびに全画面の開始/終了を切り替える
+var fsBtn = document.getElementById("fsBtn");
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+function updateFsBtn() {
+  var on = isFullscreen();
+  fsBtn.textContent = on ? "全画面終了" : "全画面表示";
+  fsBtn.className = on ? "fs-btn on" : "fs-btn";
+}
+fsBtn.addEventListener("click", function () {
+  try {
+    if (isFullscreen()) {
+      if (document.exitFullscreen) { document.exitFullscreen(); }
+      else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+    } else {
+      var el = document.documentElement;
+      if (el.requestFullscreen) {
+        var pr = el.requestFullscreen();
+        if (pr && pr.catch) { pr.catch(function () {}); }
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }
+  } catch (e) {
+    // 全画面にできない環境では何もしない
+  }
+  fsBtn.blur();
+});
+document.addEventListener("fullscreenchange", updateFsBtn);
+document.addEventListener("webkitfullscreenchange", updateFsBtn);
+// 全画面に対応していない環境ではボタンを隠す
+if (!document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen) {
+  fsBtn.style.display = "none";
+}
+
+// 出題範囲ボタンのクリック：選んだ範囲に切り替える
+var rangeBtns = document.querySelectorAll(".range-btn");
+function markRangeButtons() {
+  for (var i = 0; i < rangeBtns.length; i++) {
+    var b = rangeBtns[i];
+    b.className = (b.getAttribute("data-range") === rangeFilter)
+      ? "range-btn selected" : "range-btn";
+  }
+}
+for (var ri = 0; ri < rangeBtns.length; ri++) {
+  (function (btn) {
+    btn.addEventListener("click", function () {
+      rangeFilter = btn.getAttribute("data-range");
+      markRangeButtons();
+      // 実行中なら、新しい範囲からすぐに出題し直す（件数とタイマーは続ける）
+      // 「正解」表示中のときは、表示が終わるタイミングで新しい範囲から出題される
+      if (running && !advancing) {
+        showNextQuestion();
+      }
+      btn.blur();
+    });
+  })(rangeBtns[ri]);
+}
+
+// テンキーのクリックを onButtonClick につなぐ
+var keys = document.querySelectorAll(".key");
+for (var i = 0; i < keys.length; i++) {
+  (function (btn) {
+    btn.addEventListener("click", function () {
+      onButtonClick(btn.getAttribute("data-key"));
+      btn.blur(); // 押したボタンにフォーカスを残すと、Enterで二重入力になるため外す
+    });
+  })(keys[i]);
+}
+
+// 物理キーボード対応（数字・Backspace・Enterを同じ処理に流す）
+document.addEventListener("keydown", function (e) {
+  if (e.key >= "0" && e.key <= "9") {
+    onButtonClick(e.key);
+  } else if (e.key === "Backspace") {
+    e.preventDefault();
+    onButtonClick("BS");
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    onButtonClick("En");
+  }
+});
+
+// 起動時：問題は出さず、スタート待ちの状態にする
+updatePace();
+renderInput();
+</script>
+</body>
+</html>
